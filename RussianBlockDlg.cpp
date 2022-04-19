@@ -7,7 +7,7 @@
 #include "RussianBlock.h"
 #include "RussianBlockDlg.h"
 #include "afxdialogex.h"
-
+#include <mutex>
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -51,7 +51,7 @@ END_MESSAGE_MAP()
 
 
 CRussianBlockDlg::CRussianBlockDlg(CWnd* pParent /*=nullptr*/)
-	: CDialogEx(IDD_RUSSIANBLOCK_DIALOG, pParent) ,_game(20,9)
+	: CDialogEx(IDD_RUSSIANBLOCK_DIALOG, pParent) ,_game(23,15)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -79,10 +79,12 @@ void CRussianBlockDlg::DrawBigNet(CDC &dc2)
 	bitmap.CreateCompatibleBitmap(&dc,rect.Width(),rect.Height());
 	dcMem.SelectObject(&bitmap);
 	dcMem.BitBlt(0, 0, rect.Width(), rect.Height(), &dc2, windowRect.left, windowRect.top, SRCCOPY);
-
-	_game.AddToolToAux(_game._bigNetAux, _game._iLocX, _game._iLocY, _game._tool);
+	
+	//辅助数组绘图
+	int* pAuxBigNet = _game.AddToolToAux(new int[_game._netHeight * _game._netWidth], _game._iLocX[0], _game._iLocY[0], _game._tool[0]);
+	_game.AddToolToAux(pAuxBigNet, _game._iLocX[1], _game._iLocY[1], _game._tool[1],false);
+	
 	const COLORREF colorTableA[] = { RGB(236, 204, 104),RGB(255, 127, 80),RGB(255, 107, 129),RGB(164, 176, 190),RGB(123, 237, 159), RGB(112, 161, 255),RGB(83, 82, 237) };
-	int* pAuxBigNet = _game._bigNetAux;
 	for (int i = 0; i < _game._netHeight; ++i) {
 		for (int j = 0; j < _game._netWidth; ++j) {
 			int iType = pAuxBigNet[i * _game._netWidth + j];
@@ -103,68 +105,82 @@ void CRussianBlockDlg::DrawBigNet(CDC &dc2)
 			}
 		}
 	}
-	//wnd->RedrawWindow();
-	dcMem.SelectObject(CBrush::FromHandle((HBRUSH)GetStockObject(NULL_BRUSH)));
+	//wnd->RedrawWindow();	
+	dcMem.SelectObject(CBrush::FromHandle((HBRUSH)GetStockObject(NULL_BRUSH)));	
 	dcMem.Rectangle(0, 0, rect.Width(), rect.Height());
+
+	CPen pen(PS_SOLID, 2, RGB(127, 143, 166));
+	CPen *oldpen = dcMem.SelectObject(&pen);
+	dcMem.MoveTo(rect.Width() / 2, 0);
+	dcMem.LineTo(rect.Width() / 2, rect.Height() / _game._netHeight * 4);
+	dcMem.SelectObject(oldpen);
+
 	dc2.BitBlt(windowRect.left, windowRect.top, rect.Width(), rect.Height(), &dcMem, 0, 0, SRCCOPY);
+	//销毁辅助数组
+	delete[] pAuxBigNet;
 }
 
 void CRussianBlockDlg::DrawSmallNet(CDC &dc2)
 {
-	Tool& next_tool = _game._nextTool;
-	int type = next_tool.GetType();
-	if (type == 0) {
-		return;
-	}
+	for (int i = 0; i < 2; ++i) {
+		Tool& next_tool = _game._nextTool[i];
+		int type = next_tool.GetType();
+		if (type == 0) {
+			return;
+		}
 
-	CRect rect;
-	CWnd* wnd = GetDlgItem(IDC_PIC_SMALL);
-	CPaintDC dc(wnd);
-	wnd->GetClientRect(&rect);
-	//CClientDC dcc(wnd);
+		CRect rect;
+		CWnd* wnd;
+		if (i == 0) {
+			wnd = GetDlgItem(IDC_PIC_LEFT);
+		}
+		else {
+			wnd = GetDlgItem(IDC_PIC_RIGHT);
+		}
+		CPaintDC dc(wnd);
+		wnd->GetClientRect(&rect);
+		//CClientDC dcc(wnd);
 
-	CRect windowRect;
-	wnd->GetWindowRect(&windowRect);
-	ScreenToClient(windowRect);
+		CRect windowRect;
+		wnd->GetWindowRect(&windowRect);
+		ScreenToClient(windowRect);
 
-	CDC dcMem;
-	CBitmap bitmap;
-	dcMem.CreateCompatibleDC(&dc);
-	bitmap.CreateCompatibleBitmap(&dc, rect.Width(), rect.Height());
-	dcMem.SelectObject(&bitmap);
-	dcMem.BitBlt(0, 0, rect.Width(), rect.Height(), &dc2, windowRect.left, windowRect.top, SRCCOPY);
+		CDC dcMem;
+		CBitmap bitmap;
+		dcMem.CreateCompatibleDC(&dc);
+		bitmap.CreateCompatibleBitmap(&dc, rect.Width(), rect.Height());
+		dcMem.SelectObject(&bitmap);
+		dcMem.BitBlt(0, 0, rect.Width(), rect.Height(), &dc2, windowRect.left, windowRect.top, SRCCOPY);
 
-	const COLORREF colorTableA[] = { RGB(236, 204, 104),RGB(255, 127, 80),RGB(255, 107, 129),RGB(164, 176, 190),RGB(123, 237, 159), RGB(112, 161, 255),RGB(83, 82, 237) };
-	CBrush brush(colorTableA[type - 1]);
-	for (int i = 0; i < 4; ++i) {
-		for (int j = 0; j < 4; ++j) {
-			if (next_tool.ElementAt(i,j)!=0) {
-				dcMem.FillRect(CRect(j * rect.Width() / 4,
-					i * rect.Height() / 4,
-					(j + 1) * rect.Width() / 4,
-					(i + 1) * rect.Height() / 4
-				), &brush);
-				dcMem.SelectObject(CBrush::FromHandle((HBRUSH)GetStockObject(NULL_BRUSH)));
-				dcMem.Rectangle(j * rect.Width() /4,
-					i * rect.Height() /4,
-					(j + 1) * rect.Width() / 4,
-					(i + 1) * rect.Height() / 4
-				);
+		const COLORREF colorTableA[] = { RGB(236, 204, 104),RGB(255, 127, 80),RGB(255, 107, 129),RGB(164, 176, 190),RGB(123, 237, 159), RGB(112, 161, 255),RGB(83, 82, 237) };
+		CBrush brush(colorTableA[type - 1]);
+		for (int i = 0; i < 4; ++i) {
+			for (int j = 0; j < 4; ++j) {
+				if (next_tool.ElementAt(i, j) != 0) {
+					dcMem.FillRect(CRect(j * rect.Width() / 4,
+						i * rect.Height() / 4,
+						(j + 1) * rect.Width() / 4,
+						(i + 1) * rect.Height() / 4
+					), &brush);
+					dcMem.SelectObject(CBrush::FromHandle((HBRUSH)GetStockObject(NULL_BRUSH)));
+					dcMem.Rectangle(j * rect.Width() / 4,
+						i * rect.Height() / 4,
+						(j + 1) * rect.Width() / 4,
+						(i + 1) * rect.Height() / 4
+					);
+				}
 			}
 		}
-	}
 
-	//wnd->RedrawWindow();
-	dcMem.SelectObject(CBrush::FromHandle((HBRUSH)GetStockObject(NULL_BRUSH)));
-	dcMem.Rectangle(0, 0, rect.Width(), rect.Height());
-	dc2.BitBlt(windowRect.left, windowRect.top, rect.Width(), rect.Height(), &dcMem, 0, 0, SRCCOPY);
+		//wnd->RedrawWindow();
+		dcMem.SelectObject(CBrush::FromHandle((HBRUSH)GetStockObject(NULL_BRUSH)));
+		dcMem.Rectangle(0, 0, rect.Width(), rect.Height());
+		dc2.BitBlt(windowRect.left, windowRect.top, rect.Width(), rect.Height(), &dcMem, 0, 0, SRCCOPY);
+	}
 }
 
 void CRussianBlockDlg::OnKeyDown(UINT nChar)
 {
-	if (_game._state == GO) {
-		_game.Input(nChar);
-	}
 	if (nChar == VK_SPACE) {
 		OnClickedPause();
 	}
@@ -182,6 +198,7 @@ BEGIN_MESSAGE_MAP(CRussianBlockDlg, CDialogEx)
 	ON_WM_CLOSE()
 	ON_WM_ERASEBKGND()
 	ON_STN_CLICKED(IDC_SCORE, &CRussianBlockDlg::OnStnClickedScore)
+	ON_STN_CLICKED(IDC_SPEED, &CRussianBlockDlg::OnStnClickedSpeed)
 END_MESSAGE_MAP()
 
 
@@ -265,14 +282,22 @@ void CRussianBlockDlg::OnPaint()
 		GetClientRect(&rect);
 		
 		CBitmap bmpBackground;
-		bmpBackground.LoadBitmap(IDB_BMP_BACKGROUND);
+		CDC dcbg;
+		dcbg.CreateCompatibleDC(&dc);
+		bmpBackground.LoadBitmap(IDB_BITMAP1);
+		dcbg.SelectObject(bmpBackground);
 
 		CDC dcMem;
 		dcMem.CreateCompatibleDC(&dc);
-		CBitmap* pbmpOld = dcMem.SelectObject(&bmpBackground);
+		CBitmap dcMemBitMap;
+		dcMemBitMap.CreateCompatibleBitmap(&dc, rect.Width(), rect.Height());
+		dcMem.SelectObject(&dcMemBitMap);
+
+		dcMem.BitBlt(0, 0, rect.Width(), rect.Height(), &dcbg, 0, 0, SRCCOPY);
 		
 		DrawSmallNet(dcMem);
 		DrawBigNet(dcMem);
+
 		dc.BitBlt(0, 0, rect.Width(), rect.Height(), &dcMem, 0, 0, SRCCOPY);
 
 		CDialogEx::OnPaint();
@@ -293,34 +318,57 @@ void CRussianBlockDlg::OnClickedBstart()
 	// TODO: 在此添加控件通知处理程序代码
 	if (_game._state == GO) {
 		KillTimer(1);
+		KillTimer(2);
 	}
 	_game.Start();
 	SetTimer(1, _game.GetTickTime(), NULL);
+	SetTimer(2, 100, NULL);
+
 }
 
 
 void CRussianBlockDlg::OnTimer(UINT_PTR nIDEvent)
 {
-	// TODO: 在此添加消息处理程序代码和/或调用默认值
-	if (!_game.Go()) {
-		KillTimer(1);
-		TCHAR* msg = _T("Game Over!");
-		MessageBox(msg);
-		return;
-	}
-	char str[10];
-	CString score( "得分:"),speed("速度:");
-	_itoa_s(_game.GetScore(), str, 10);
-	score.Append(CString(str));
-	this->score.SetWindowTextW(score);
+	switch (nIDEvent)
+	{
+	case 1:
+	{
+		if (!_game.Go()) {
+			KillTimer(1);
+			KillTimer(2);
+			TCHAR* msg = _T("Game Over!");
+			MessageBox(msg);
+			return;
+		}
+		char str[10];
+		CString score("得分:"), difficulty("难度:");
+		_itoa_s(_game.GetScore(), str, 10);
+		score.Append(CString(str));
+		this->score.SetWindowTextW(score);
 
-	_itoa_s(_game.GetTickTime(), str, 10);
-	speed.Append(CString(str));
-	speed.Append(CString("ms/步"));
-	this->speed.SetWindowTextW(speed);
-	Invalidate(true);
-	KillTimer(1);
-	SetTimer(1,_game.GetTickTime(),NULL);
+		_itoa_s(_game.GetDifficulty(), str, 10);
+		difficulty.Append(CString(str));
+		this->speed.SetWindowTextW(difficulty);
+		Invalidate(true);
+		KillTimer(1);
+		SetTimer(1, _game.GetTickTime(), NULL);
+	}
+		break;
+	case 2:
+	{
+		if (_game._state == GO) {
+			if (GetAsyncKeyState(VK_UP)) _game.Input(VK_UP);
+			if (GetAsyncKeyState(VK_DOWN)) _game.Input(VK_DOWN);
+			if (GetAsyncKeyState(VK_LEFT)) _game.Input(VK_LEFT);
+			if (GetAsyncKeyState(VK_RIGHT)) _game.Input(VK_RIGHT);
+			if (GetAsyncKeyState('A')) _game.Input('A');
+			if (GetAsyncKeyState('S')) _game.Input('S');
+			if (GetAsyncKeyState('D')) _game.Input('D');
+			if (GetAsyncKeyState('W')) _game.Input('W');
+		}
+		Invalidate(true);
+	}
+	}
 }
 
 
@@ -329,16 +377,18 @@ void CRussianBlockDlg::OnClickedPause()
 	_game.PauseOrContinue();
 	if (_game._state == PAUSE) {
 		KillTimer(1);
+		KillTimer(2);
 	}
 	if (_game._state == GO) {
 		SetTimer(1, _game.GetTickTime(), NULL);
+		SetTimer(2, 100, NULL);
 	}
 }
 
 
 void CRussianBlockDlg::OnClickedHelp()
 {
-	TCHAR* msg = _T("help");
+	TCHAR* msg = _T("左：ASDW\n右：方向键");
 	MessageBox(msg);
 }
 
@@ -359,6 +409,7 @@ void CRussianBlockDlg::OnClose()
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	if (_game._state == GO) {
 		KillTimer(1);
+		KillTimer(2);
 	}
 	CDialogEx::OnClose();
 }
@@ -374,6 +425,12 @@ BOOL CRussianBlockDlg::OnEraseBkgnd(CDC* pDC)
 
 
 void CRussianBlockDlg::OnStnClickedScore()
+{
+	// TODO: 在此添加控件通知处理程序代码
+}
+
+
+void CRussianBlockDlg::OnStnClickedSpeed()
 {
 	// TODO: 在此添加控件通知处理程序代码
 }

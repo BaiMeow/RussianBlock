@@ -213,7 +213,17 @@
     <None Include="res\RussianBlock.rc2" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="..\..\..\Downloads\20220404213100 (1).bmp" />
+    <Image Include="..\..\..\Downloads\20220404213100 (3).bmp" />
+    <Image Include="..\..\..\Downloads\20220404213100.bmp" />
     <Image Include="..\..\..\Downloads\96096254_p0 (1).bmp" />
+    <Image Include="..\..\..\downloads\bitmap1.bmp" />
+    <Image Include="..\..\..\Pictures\20220404213100.bmp" />
+    <Image Include="..\..\..\Pictures\20220404213100.png" />
+    <Image Include="..\..\..\Pictures\7f7603261489a11d1afddc70f538279858c07d2f.jpg%40942w_531h_progressive.bmp" />
+    <Image Include="..\..\..\Pictures\a0de5aab3d9ba6a1736b78650b7abf9d.bmp" />
+    <Image Include="..\..\..\Pictures\ad257195630544aeacaa99ff3d08cf134bf904f6.jpg%40942w_531h_progressive.bmp" />
+    <Image Include="..\..\..\Pictures\QQ截图20220419185206.bmp" />
     <Image Include="res\RussianBlock.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

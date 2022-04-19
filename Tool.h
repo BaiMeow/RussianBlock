@@ -6,6 +6,7 @@ private:
 	int _type;
 public:
 	Tool(int type);
+	Tool();
 	~Tool();
 	const int GetType() const;
 	const int& ElementAt(int i, int j)const;

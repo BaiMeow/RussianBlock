@@ -34,6 +34,11 @@ Tool::Tool(int type)
 	}
 }
 
+Tool::Tool()
+{
+	*this = Tool(0);
+}
+
 Tool::~Tool()
 {
 }

@@ -46,4 +46,5 @@ public:
 	CStatic score;
 	afx_msg void OnStnClickedScore();
 	CStatic speed;
+	afx_msg void OnStnClickedSpeed();
 };
